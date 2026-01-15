@@ -1,4 +1,4 @@
 """Router package initialization."""
-from backend.routers import health
+from backend.routers import health, pricing, quotes
 
-__all__ = ["health"]
+__all__ = ["health", "pricing", "quotes"]
