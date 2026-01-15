@@ -1,0 +1,277 @@
+"""Invoice API endpoints."""
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, func
+from typing import Optional
+from datetime import datetime
+from decimal import Decimal
+
+from backend.database import get_db
+from backend.middleware.auth import get_current_user, get_tenant_context
+from backend.models.user import User
+from backend.models.invoice import Invoice, SubscriptionInvoice, PaymentTransaction
+from backend.models.company_profile import CompanyProfile
+from backend.services.gst import gst_calculator, invoice_number_generator
+from shared.schemas import (
+    InvoiceResponse,
+    InvoiceCreate,
+    PaginatedResponse
+)
+
+router = APIRouter(prefix="/api/invoices", tags=["invoices"])
+
+
+@router.get("", response_model=PaginatedResponse)
+async def list_invoices(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    tenant_id: int = Depends(get_tenant_context)
+):
+    """
+    List all invoices for the current tenant.
+    """
+    query = select(Invoice).where(Invoice.tenant_id == tenant_id)
+    
+    if status:
+        query = query.where(Invoice.status == status)
+    
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query)
+    
+    # Paginate and order by date descending
+    query = query.order_by(Invoice.invoice_date.desc()).offset((page - 1) * limit).limit(limit)
+    result = await db.execute(query)
+    invoices = result.scalars().all()
+    
+    return {
+        "items": [InvoiceResponse.from_orm(inv) for inv in invoices],
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": (total + limit - 1) // limit
+    }
+
+
+@router.get("/{invoice_id}", response_model=InvoiceResponse)
+async def get_invoice(
+    invoice_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    tenant_id: int = Depends(get_tenant_context)
+):
+    """
+    Get invoice details by ID.
+    """
+    result = await db.execute(
+        select(Invoice).where(
+            and_(
+                Invoice.id == invoice_id,
+                Invoice.tenant_id == tenant_id
+            )
+        )
+    )
+    invoice = result.scalar_one_or_none()
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    return InvoiceResponse.from_orm(invoice)
+
+
+@router.post("", response_model=InvoiceResponse)
+async def create_invoice(
+    invoice_data: InvoiceCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    tenant_id: int = Depends(get_tenant_context)
+):
+    """
+    Create a new invoice.
+    Calculates GST automatically based on seller/buyer GSTIN.
+    """
+    # Get company profile for seller info
+    company_result = await db.execute(
+        select(CompanyProfile).where(CompanyProfile.tenant_id == tenant_id)
+    )
+    company = company_result.scalar_one_or_none()
+    
+    if not company:
+        raise HTTPException(status_code=400, detail="Company profile not configured")
+    
+    # Determine if inter-state
+    is_inter_state = gst_calculator.determine_inter_state(
+        company.gst_number,
+        invoice_data.buyer_gst
+    )
+    
+    # Calculate GST
+    gst_breakdown = gst_calculator.calculate_gst(
+        amount=invoice_data.subtotal,
+        gst_rate=invoice_data.gst_rate,
+        is_inter_state=is_inter_state
+    )
+    
+    # Generate invoice number
+    invoice_count = await db.scalar(
+        select(func.count(Invoice.id)).where(Invoice.tenant_id == tenant_id)
+    )
+    invoice_number = invoice_number_generator.generate_invoice_number(
+        prefix=company.invoice_prefix or "INV",
+        sequence=invoice_count + 1
+    )
+    
+    # Create invoice
+    invoice = Invoice(
+        tenant_id=tenant_id,
+        invoice_number=invoice_number,
+        invoice_date=invoice_data.invoice_date or datetime.utcnow(),
+        due_date=invoice_data.due_date,
+        
+        # Seller (from company profile)
+        seller_name=company.company_name,
+        seller_address=company.address,
+        seller_gst=company.gst_number,
+        seller_pan=company.pan_number,
+        
+        # Buyer
+        buyer_name=invoice_data.buyer_name,
+        buyer_address=invoice_data.buyer_address,
+        buyer_gst=invoice_data.buyer_gst,
+        buyer_pan=invoice_data.buyer_pan,
+        
+        # Amounts
+        subtotal=invoice_data.subtotal,
+        cgst=gst_breakdown["cgst"],
+        sgst=gst_breakdown["sgst"],
+        igst=gst_breakdown["igst"],
+        total_gst=gst_breakdown["total_gst"],
+        total_amount=gst_breakdown["total_amount"],
+        
+        # Additional
+        notes=invoice_data.notes,
+        terms=invoice_data.terms,
+        status="draft"
+    )
+    
+    db.add(invoice)
+    await db.commit()
+    await db.refresh(invoice)
+    
+    return InvoiceResponse.from_orm(invoice)
+
+
+@router.post("/{invoice_id}/finalize")
+async def finalize_invoice(
+    invoice_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    tenant_id: int = Depends(get_tenant_context)
+):
+    """
+    Finalize an invoice (make it immutable and send to buyer).
+    """
+    result = await db.execute(
+        select(Invoice).where(
+            and_(
+                Invoice.id == invoice_id,
+                Invoice.tenant_id == tenant_id
+            )
+        )
+    )
+    invoice = result.scalar_one_or_none()
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    if invoice.status != "draft":
+        raise HTTPException(status_code=400, detail="Only draft invoices can be finalized")
+    
+    invoice.status = "sent"
+    invoice.finalized_at = datetime.utcnow()
+    await db.commit()
+    
+    # TODO: Send email to buyer
+    
+    return {"message": "Invoice finalized and sent to buyer"}
+
+
+@router.post("/{invoice_id}/mark-paid")
+async def mark_invoice_paid(
+    invoice_id: int,
+    payment_method: str,
+    transaction_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    tenant_id: int = Depends(get_tenant_context)
+):
+    """
+    Mark invoice as paid.
+    """
+    result = await db.execute(
+        select(Invoice).where(
+            and_(
+                Invoice.id == invoice_id,
+                Invoice.tenant_id == tenant_id
+            )
+        )
+    )
+    invoice = result.scalar_one_or_none()
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    if invoice.status == "paid":
+        raise HTTPException(status_code=400, detail="Invoice already paid")
+    
+    invoice.status = "paid"
+    invoice.paid_at = datetime.utcnow()
+    
+    # Create payment transaction record
+    transaction = PaymentTransaction(
+        tenant_id=tenant_id,
+        invoice_id=invoice_id,
+        amount=invoice.total_amount,
+        currency="INR",
+        payment_method=payment_method,
+        external_transaction_id=transaction_id,
+        status="completed"
+    )
+    db.add(transaction)
+    
+    await db.commit()
+    
+    return {"message": "Invoice marked as paid"}
+
+
+@router.get("/subscription/my-invoices", response_model=PaginatedResponse)
+async def list_my_subscription_invoices(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    List subscription invoices for current user.
+    """
+    query = select(SubscriptionInvoice).where(SubscriptionInvoice.user_id == user.id)
+    
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query)
+    
+    # Paginate
+    query = query.order_by(SubscriptionInvoice.billing_date.desc()).offset((page - 1) * limit).limit(limit)
+    result = await db.execute(query)
+    invoices = result.scalars().all()
+    
+    return {
+        "items": invoices,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": (total + limit - 1) // limit
+    }

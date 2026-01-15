@@ -12,7 +12,7 @@ from datetime import datetime
 
 from backend.config import settings
 from backend.database import engine, Base
-from backend.routers import health, pricing, quotes
+from backend.routers import health, pricing, quotes, parties, subscriptions, invoices, admin
 
 # Configure logging
 logging.basicConfig(
@@ -107,13 +107,14 @@ async def root():
 app.include_router(health.router, tags=["Health"])
 app.include_router(pricing.router, prefix="/api", tags=["Pricing"])
 app.include_router(quotes.router, prefix="/api", tags=["Quotes"])
+app.include_router(parties.router, tags=["Customers"])
+app.include_router(subscriptions.router, tags=["Subscriptions"])
+app.include_router(invoices.router, tags=["Invoices"])
+app.include_router(admin.router, tags=["Admin"])
 
-# Additional routers will be added here as they are created:
+# Additional routers to be added:
 # app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-# app.include_router(users.router, prefix="/api/users", tags=["Users"])
-# app.include_router(parties.router, prefix="/api/parties", tags=["Customers"])
-# app.include_router(invoices.router, prefix="/api/invoices", tags=["Invoices"])
-# app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+# app.include_router(support.router, prefix="/api/support", tags=["Support"])
 
 
 if __name__ == "__main__":

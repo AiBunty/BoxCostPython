@@ -281,3 +281,142 @@ class PaginatedResponse(BaseModel):
     page: int
     limit: int
     pages: int
+
+
+# Party Schemas
+class PartyBase(BaseModel):
+    party_name: str
+    contact_person: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    gst_number: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    is_active: bool = True
+
+
+class PartyCreate(PartyBase):
+    pass
+
+
+class PartyUpdate(BaseModel):
+    party_name: Optional[str] = None
+    contact_person: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    gst_number: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class PartyResponse(PartyBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Subscription Schemas
+class SubscriptionPlanResponse(BaseModel):
+    id: int
+    name: str
+    display_name: str
+    description: Optional[str]
+    price_monthly: Decimal
+    price_yearly: Decimal
+    features: dict
+    quotas: dict
+    is_active: bool
+    sort_order: int
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserSubscriptionResponse(BaseModel):
+    id: int
+    user_id: int
+    plan_id: int
+    status: str
+    starts_at: datetime
+    ends_at: Optional[datetime]
+    billing_cycle: str
+    auto_renew: bool
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EntitlementResponse(BaseModel):
+    subscription_id: int
+    plan_name: str
+    status: str
+    features: dict
+    quotas: dict
+    overrides_applied: List[dict]
+    computed_at: str
+
+
+# Invoice Schemas
+class InvoiceCreate(BaseModel):
+    invoice_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    buyer_name: str
+    buyer_address: str
+    buyer_gst: Optional[str] = None
+    buyer_pan: Optional[str] = None
+    subtotal: Decimal
+    gst_rate: Decimal = Decimal("18.0")
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+
+
+class InvoiceResponse(BaseModel):
+    id: int
+    tenant_id: int
+    invoice_number: str
+    invoice_date: datetime
+    due_date: Optional[datetime]
+    seller_name: str
+    seller_address: str
+    seller_gst: Optional[str]
+    buyer_name: str
+    buyer_address: str
+    buyer_gst: Optional[str]
+    subtotal: Decimal
+    cgst: Decimal
+    sgst: Decimal
+    igst: Decimal
+    total_gst: Decimal
+    total_amount: Decimal
+    status: str
+    paid_at: Optional[datetime]
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Admin Schemas
+class AdminLoginResponse(BaseModel):
+    admin_id: int
+    session_token: str
+    expires_at: datetime
+    requires_2fa: bool = False
+
+
+class SupportTicketResponse(BaseModel):
+    id: int
+    ticket_number: str
+    user_id: int
+    subject: str
+    priority: str
+    status: str
+    created_at: datetime
+    resolved_at: Optional[datetime]
+    
+    model_config = ConfigDict(from_attributes=True)
