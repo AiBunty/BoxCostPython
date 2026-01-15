@@ -12,11 +12,15 @@ from backend.models.user import User
 from backend.models.invoice import Invoice, SubscriptionInvoice, PaymentTransaction
 from backend.models.company_profile import CompanyProfile
 from backend.services.gst import gst_calculator, invoice_number_generator
+from backend.services.pdf import invoice_pdf_generator
+from backend.services.email import email_service
 from shared.schemas import (
     InvoiceResponse,
     InvoiceCreate,
     PaginatedResponse
 )
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
 
@@ -192,6 +196,44 @@ async def finalize_invoice(
     
     invoice.status = "sent"
     invoice.finalized_at = datetime.utcnow()
+    # Generate PDF
+    invoice_dict = {
+        "invoice_number": invoice.invoice_number,
+        "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+        "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "Upon receipt",
+        "seller_name": invoice.seller_name,
+        "seller_address": invoice.seller_address,
+        "seller_gst": invoice.seller_gst,
+        "seller_pan": invoice.seller_pan,
+        "buyer_name": invoice.buyer_name,
+        "buyer_address": invoice.buyer_address,
+        "buyer_gst": invoice.buyer_gst,
+        "buyer_pan": invoice.buyer_pan,
+        "buyer_email": invoice.buyer_email if hasattr(invoice, 'buyer_email') else None,
+        "subtotal": float(invoice.subtotal),
+        "cgst": float(invoice.cgst),
+        "sgst": float(invoice.sgst),
+        "igst": float(invoice.igst),
+        "total_gst": float(invoice.total_gst),
+        "total_amount": float(invoice.total_amount),
+        "notes": invoice.notes,
+        "terms": invoice.terms
+    }
+    
+    try:
+        pdf_bytes = invoice_pdf_generator.generate_invoice_pdf(invoice_dict)
+        
+        # Send email with PDF attachment
+        if invoice_dict.get('buyer_email'):
+            await email_service.send_invoice_email(
+                invoice_data=invoice_dict,
+                pdf_bytes=pdf_bytes,
+                db=db
+            )
+    except Exception as e:
+        # Log error but don't fail finalization
+        pass
+    
     await db.commit()
     
     # TODO: Send email to buyer
@@ -245,6 +287,65 @@ async def mark_invoice_paid(
     await db.commit()
     
     return {"message": "Invoice marked as paid"}
+
+
+@router.get("/{invoice_id}/pdf")
+async def download_invoice_pdf(
+    invoice_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    tenant_id: int = Depends(get_tenant_context)
+):
+    """
+    Download invoice as PDF.
+    """
+    result = await db.execute(
+        select(Invoice).where(
+            and_(
+                Invoice.id == invoice_id,
+                Invoice.tenant_id == tenant_id
+            )
+        )
+    )
+    invoice = result.scalar_one_or_none()
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Prepare invoice data
+    invoice_dict = {
+        "invoice_number": invoice.invoice_number,
+        "invoice_date": invoice.invoice_date.strftime("%Y-%m-%d"),
+        "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "Upon receipt",
+        "seller_name": invoice.seller_name,
+        "seller_address": invoice.seller_address,
+        "seller_gst": invoice.seller_gst,
+        "seller_pan": invoice.seller_pan,
+        "buyer_name": invoice.buyer_name,
+        "buyer_address": invoice.buyer_address,
+        "buyer_gst": invoice.buyer_gst,
+        "buyer_pan": invoice.buyer_pan,
+        "subtotal": float(invoice.subtotal),
+        "cgst": float(invoice.cgst),
+        "sgst": float(invoice.sgst),
+        "igst": float(invoice.igst),
+        "total_gst": float(invoice.total_gst),
+        "total_amount": float(invoice.total_amount),
+        "notes": invoice.notes,
+        "terms": invoice.terms
+    }
+    
+    # Generate PDF
+    pdf_bytes = invoice_pdf_generator.generate_invoice_pdf(invoice_dict)
+    
+    # Return as downloadable file
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=invoice_{invoice.invoice_number.replace('/', '_')}.pdf"
+        }
+    )
 
 
 @router.get("/subscription/my-invoices", response_model=PaginatedResponse)
