@@ -185,7 +185,7 @@ class PlatformEvent(Base, BaseMixin):
     
     # Metadata
     event_data = Column(JSON, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    event_metadata = Column(JSON, nullable=True)
     
     # Immutability
     is_immutable = Column(Boolean, default=True, nullable=False)

@@ -10,11 +10,13 @@ import math
 class PaperLayer:
     """Represents a single paper layer in the board."""
     
-    def __init__(self, bf: int, gsm: int, shade: str, is_flute: bool = False):
+    def __init__(self, bf: int, gsm: int, shade: str, is_flute: bool = False, fluting_factor: float = 1.5):
         self.bf = bf
         self.gsm = gsm
-        shade = shade
+        self.shade = shade
         self.is_flute = is_flute
+        # TS parity: default fluting factor 1.5 for flute layers, 1.0 for liners
+        self.fluting_factor = fluting_factor if is_flute else 1.0
 
 
 class BoxSpecification:
@@ -160,19 +162,19 @@ class BoxCalculator:
         Calculate sheet dimensions from box dimensions.
         Formula: Sheet = 2*(L+W) + 2*H + allowances
         """
+        # Base RSC layout: 2(L+W) + glue flap + allowances
         sheet_length = (
             2 * (length + width) +
             self.GLUE_FLAP +
             self.DECKLE_ALLOWANCE +
             self.SHEET_ALLOWANCE
         )
-        
+        # Width uses 2H + allowances
         sheet_width = (
             2 * height +
             self.DECKLE_ALLOWANCE +
             self.SHEET_ALLOWANCE
         )
-        
         return sheet_length, sheet_width
     
     def _calculate_paper_weight(
@@ -183,17 +185,13 @@ class BoxCalculator:
     ) -> float:
         """
         Calculate total paper weight per box.
-        Formula: Weight = Area * Σ(GSM * fluting_factor_if_flute) / 1000
+        Formula: Weight = Area * Σ(GSM * layer_fluting_factor) / 1000
         """
         total_gsm = 0
         
         for layer in layers:
-            if layer.is_flute:
-                # Flute layers use fluting factor
-                total_gsm += layer.gsm * fluting_factor
-            else:
-                # Liner layers use actual GSM
-                total_gsm += layer.gsm
+            factor = layer.fluting_factor if layer.is_flute else 1.0
+            total_gsm += layer.gsm * factor
         
         # Convert to kg: area (sq.m) * total_gsm / 1000
         weight_kg = sheet_area * total_gsm / 1000
@@ -206,19 +204,13 @@ class BoxCalculator:
         fluting_factor: float
     ) -> float:
         """
-        Calculate total board thickness.
-        Simplified: thickness ≈ Σ(GSM / 130) for liners + flute height
+        Calculate total board thickness using gsm-based approximation (TS parity).
+        Simplified: thickness ≈ Σ((GSM / 1000) * layer_fluting_factor)
         """
-        thickness = 0
-        
+        thickness = 0.0
         for layer in layers:
-            if layer.is_flute:
-                # Flute contributes more height (assume 4mm for A-flute)
-                thickness += 4.0
-            else:
-                # Liner thickness approximation
-                thickness += layer.gsm / 130
-        
+            factor = layer.fluting_factor if layer.is_flute else 1.0
+            thickness += (layer.gsm / 1000.0) * factor
         return round(thickness, 3)
     
     def _calculate_paper_cost(

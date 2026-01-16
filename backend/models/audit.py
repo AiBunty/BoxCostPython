@@ -60,7 +60,7 @@ class AuthAuditLog(Base, BaseMixin):
     failure_reason = Column(Text, nullable=True)
     
     # Metadata
-    metadata = Column(JSON, nullable=True)
+    event_metadata = Column(JSON, nullable=True)
     
     def __repr__(self):
         return f"<AuthAuditLog(user={self.user_id}, event={self.event_type})>"
@@ -86,8 +86,9 @@ class AdminLoginAuditLog(Base, BaseMixin):
     success = Column(String, nullable=False)
     failure_reason = Column(Text, nullable=True)
     
-    # 2FA
-    two_factor_used = Column(String, nullable=False)
+    # 2FA & Session
+    two_factor_used = Column(String, nullable=False, default="false")
+    session_id = Column(String(255), nullable=True)
     
     def __repr__(self):
         return f"<AdminLoginAuditLog(admin={self.admin_id}, event={self.event_type})>"

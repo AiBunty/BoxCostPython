@@ -13,6 +13,30 @@ from backend.models.pricing import (
 )
 from backend.models.party import PartyProfile
 from backend.models.quote import Quote, QuoteVersion, QuoteItem, QuoteSendLog, QuoteStatus
+from backend.models.support import SupportTicket, SupportMessage, SupportAgent, SLARule
+from backend.models.audit import AdminAuditLog, AuthAuditLog, AdminLoginAuditLog, EmailLog
+from backend.models.coupon import Coupon, CouponUsage, CouponType, CouponStatus
+from backend.models.two_factor_auth import TwoFactorAuth, TwoFactorBackupCode
+from backend.models.entitlement import (
+    Feature,
+    UserEntitlement,
+    TenantEntitlement,
+    PlanTemplate,
+    EntitlementLog,
+)
+from backend.models.subscription import (
+    SubscriptionPlan,
+    UserSubscription,
+    SubscriptionOverride,
+    PlanInterval,
+    SubscriptionStatus,
+)
+from backend.models.payment import (
+    PaymentMethod,
+    Transaction,
+    UsageRecord,
+    SubscriptionChange,
+)
 
 __all__ = [
     "User",
@@ -35,4 +59,32 @@ __all__ = [
     "QuoteItem",
     "QuoteSendLog",
     "QuoteStatus",
+    "SupportTicket",
+    "SupportMessage",
+    "SupportAgent",
+    "SLARule",
+    "AdminAuditLog",
+    "AuthAuditLog",
+    "AdminLoginAuditLog",
+    "EmailLog",
+    "Coupon",
+    "CouponUsage",
+    "CouponType",
+    "CouponStatus",
+    "TwoFactorAuth",
+    "TwoFactorBackupCode",
+    "Feature",
+    "UserEntitlement",
+    "TenantEntitlement",
+    "PlanTemplate",
+    "EntitlementLog",
+    "SubscriptionPlan",
+    "UserSubscription",
+    "SubscriptionOverride",
+    "PlanInterval",
+    "SubscriptionStatus",
+    "PaymentMethod",
+    "Transaction",
+    "UsageRecord",
+    "SubscriptionChange",
 ]

@@ -20,6 +20,7 @@ class Admin(Base, BaseMixin):
     
     # Authentication
     password_hash = Column(String(255), nullable=False)  # bcrypt hashed
+    password_changed = Column(Boolean, default=False, nullable=False)  # Track if password changed from default
     
     # 2FA
     two_factor_enabled = Column(Boolean, default=False, nullable=False)

@@ -9,8 +9,8 @@ psycopg2-binary==2.9.9
 alembic==1.13.1
 
 # Data Validation
-pydantic==2.5.3
-pydantic-settings==2.1.0
+pydantic>=2.11.2
+pydantic-settings>=2.1.0
 email-validator==2.1.0
 
 # Authentication
@@ -50,7 +50,6 @@ redis==5.0.1
 pytest==7.4.3
 pytest-asyncio==0.23.3
 pytest-cov==4.1.0
-httpx==0.26.0
 
 # Code Quality
 black==23.12.1

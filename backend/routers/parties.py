@@ -8,7 +8,7 @@ from datetime import datetime
 from backend.database import get_db
 from backend.middleware.auth import get_current_user, get_tenant_context
 from backend.models.user import User
-from backend.models.party import Party
+from backend.models.party import PartyProfile
 from shared.schemas import (
     PartyCreate,
     PartyUpdate,

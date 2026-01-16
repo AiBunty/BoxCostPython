@@ -352,6 +352,10 @@ class UserSubscriptionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Alias for backwards compatibility
+SubscriptionResponse = UserSubscriptionResponse
+
+
 class EntitlementResponse(BaseModel):
     subscription_id: int
     plan_name: str
@@ -372,6 +376,7 @@ class InvoiceCreate(BaseModel):
     buyer_pan: Optional[str] = None
     subtotal: Decimal
     gst_rate: Decimal = Decimal("18.0")
+    discount_amount: Decimal = Decimal("0")
     notes: Optional[str] = None
     terms: Optional[str] = None
 
@@ -389,6 +394,7 @@ class InvoiceResponse(BaseModel):
     buyer_address: str
     buyer_gst: Optional[str]
     subtotal: Decimal
+    discount_amount: Decimal
     cgst: Decimal
     sgst: Decimal
     igst: Decimal
@@ -409,10 +415,56 @@ class AdminLoginResponse(BaseModel):
     requires_2fa: bool = False
 
 
+class SupportTicketCreate(BaseModel):
+    subject: str
+    description: str
+    category: Optional[str] = None
+    priority: Optional[str] = None
+
+
+class SupportTicketUpdate(BaseModel):
+    subject: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    assigned_to_agent_id: Optional[int] = None
+    sla_breached: Optional[bool] = None
+    sla_breach_reason: Optional[str] = None
+    customer_rating: Optional[int] = None
+    customer_feedback: Optional[str] = None
+
+
+class SupportMessageCreate(BaseModel):
+    message: str
+    message_type: str = "text"
+    sender_type: str = "user"  # user, agent, system
+    sender_id: Optional[int] = None
+    sender_name: Optional[str] = None
+    is_internal: bool = False
+    attachments: Optional[str] = None
+
+
+class SupportMessageResponse(BaseModel):
+    id: int
+    ticket_id: int
+    message: str
+    message_type: str
+    sender_type: str
+    sender_id: Optional[int]
+    sender_name: Optional[str]
+    is_internal: bool
+    attachments: Optional[str]
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SupportTicketResponse(BaseModel):
     id: int
     ticket_number: str
     user_id: int
+    tenant_id: int
     subject: str
     priority: str
     status: str
@@ -420,3 +472,16 @@ class SupportTicketResponse(BaseModel):
     resolved_at: Optional[datetime]
     
     model_config = ConfigDict(from_attributes=True)
+
+
+class SupportTicketDetailResponse(SupportTicketResponse):
+    description: str
+    category: Optional[str]
+    assigned_to_agent_id: Optional[int]
+    first_response_at: Optional[datetime]
+    closed_at: Optional[datetime]
+    sla_breached: bool
+    sla_breach_reason: Optional[str]
+    customer_rating: Optional[int]
+    customer_feedback: Optional[str]
+    messages: List[SupportMessageResponse] = []

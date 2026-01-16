@@ -62,7 +62,7 @@ async def get_current_user(
         raise AuthenticationError(f"Authentication error: {str(e)}")
 
 
-async def get_current_admin(
+def get_current_admin(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ) -> Admin:
@@ -110,7 +110,11 @@ async def get_current_admin(
     return admin
 
 
-async def require_admin_role(
+# Alias for backwards compatibility
+require_admin = get_current_admin
+
+
+def require_admin_role(
     role: str,
     admin: Admin = Depends(get_current_admin)
 ) -> Admin:
@@ -166,6 +170,22 @@ async def get_current_tenant_id(
         )
     
     return tenant_user.tenant_id
+
+
+async def get_tenant_context(
+    current_user: User = Depends(get_current_user)
+) -> int:
+    """
+    Get tenant context (tenant ID) for current user.
+    Alias for get_current_tenant_id for backwards compatibility.
+    
+    Args:
+        current_user: Authenticated user
+        
+    Returns:
+        int: Tenant ID
+    """
+    return await get_current_tenant_id(current_user)
 
 
 class TenantContext:

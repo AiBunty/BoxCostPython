@@ -12,7 +12,28 @@ from datetime import datetime
 
 from backend.config import settings
 from backend.database import engine, Base
-from backend.routers import health, pricing, quotes, parties, subscriptions, invoices, admin
+from backend.routers import (
+    health,
+    pricing,
+    quotes,
+    parties,
+    subscriptions,
+    invoices,
+    admin,
+    support,
+    audit,
+    coupons,
+    two_factor,
+    entitlements,
+    payments,
+    subscriptions_enhanced,
+    webhooks,
+    usage,
+    pdf,
+    realtime,
+    reports,
+    jobs,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -111,10 +132,22 @@ app.include_router(parties.router, tags=["Customers"])
 app.include_router(subscriptions.router, tags=["Subscriptions"])
 app.include_router(invoices.router, tags=["Invoices"])
 app.include_router(admin.router, tags=["Admin"])
+app.include_router(support.router, tags=["Support"])
+app.include_router(audit.router, tags=["Audit"])
+app.include_router(coupons.router, tags=["Coupons"])
+app.include_router(two_factor.router, tags=["2FA"])
+app.include_router(entitlements.router, tags=["Entitlements"])
+app.include_router(payments.router, tags=["Payments"])
+app.include_router(subscriptions_enhanced.router, tags=["Subscriptions V2"])
+app.include_router(webhooks.router, tags=["Webhooks"])
+app.include_router(usage.router, tags=["Usage Tracking"])
+app.include_router(pdf.router, tags=["PDF Generation"])
+app.include_router(realtime.router, tags=["Realtime"])
+app.include_router(reports.router, tags=["Reports"])
+app.include_router(jobs.router, tags=["Jobs"])
 
 # Additional routers to be added:
 # app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-# app.include_router(support.router, prefix="/api/support", tags=["Support"])
 
 
 if __name__ == "__main__":

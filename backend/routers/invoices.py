@@ -1,7 +1,7 @@
 """Invoice API endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, desc
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
@@ -112,26 +112,40 @@ async def create_invoice(
         invoice_data.buyer_gst
     )
     
-    # Calculate GST
+    # Calculate GST (discount-before-tax parity)
+    discount_amount = invoice_data.discount_amount or Decimal("0")
     gst_breakdown = gst_calculator.calculate_gst(
         amount=invoice_data.subtotal,
         gst_rate=invoice_data.gst_rate,
-        is_inter_state=is_inter_state
+        is_inter_state=is_inter_state,
+        discount_amount=discount_amount
     )
     
-    # Generate invoice number
-    invoice_count = await db.scalar(
-        select(func.count(Invoice.id)).where(Invoice.tenant_id == tenant_id)
+    # Generate invoice number scoped to financial year (TS parity: FY resets annually)
+    financial_year = invoice_number_generator.get_financial_year(invoice_data.invoice_date or datetime.utcnow())
+    last_number = await db.scalar(
+        select(Invoice.invoice_number)
+        .where(
+            and_(
+                Invoice.tenant_id == tenant_id,
+                Invoice.financial_year == financial_year
+            )
+        )
+        .order_by(desc(Invoice.id))
+        .limit(1)
     )
+    last_sequence = invoice_number_generator.parse_sequence(last_number) if last_number else 0
     invoice_number = invoice_number_generator.generate_invoice_number(
         prefix=company.invoice_prefix or "INV",
-        sequence=invoice_count + 1
+        sequence=last_sequence + 1,
+        financial_year=financial_year
     )
     
     # Create invoice
     invoice = Invoice(
         tenant_id=tenant_id,
         invoice_number=invoice_number,
+        financial_year=financial_year,
         invoice_date=invoice_data.invoice_date or datetime.utcnow(),
         due_date=invoice_data.due_date,
         
@@ -149,6 +163,7 @@ async def create_invoice(
         
         # Amounts
         subtotal=invoice_data.subtotal,
+        discount_amount=discount_amount,
         cgst=gst_breakdown["cgst"],
         sgst=gst_breakdown["sgst"],
         igst=gst_breakdown["igst"],

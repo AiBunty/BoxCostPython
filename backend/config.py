@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     # Razorpay
     razorpay_key_id: Optional[str] = None
     razorpay_key_secret: Optional[str] = None
+    razorpay_webhook_secret: Optional[str] = None
+    
+    # Stripe
+    stripe_api_key: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None
+    
+    # SMTP Email
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
     
     # AWS SES
     aws_access_key_id: Optional[str] = None

@@ -1,4 +1,40 @@
 """Router package initialization."""
-from backend.routers import health, pricing, quotes
+from backend.routers import (
+    health,
+    pricing,
+    quotes,
+    parties,
+    subscriptions,
+    invoices,
+    admin,
+    support,
+    audit,
+    coupons,
+    two_factor,
+    entitlements,
+    payments,
+    subscriptions_enhanced,
+    realtime,
+    reports,
+    jobs,
+)
 
-__all__ = ["health", "pricing", "quotes"]
+__all__ = [
+    "health",
+    "pricing",
+    "quotes",
+    "parties",
+    "subscriptions",
+    "invoices",
+    "admin",
+    "support",
+    "audit",
+    "coupons",
+    "two_factor",
+    "entitlements",
+    "payments",
+    "subscriptions_enhanced",
+    "realtime",
+    "reports",
+    "jobs",
+]

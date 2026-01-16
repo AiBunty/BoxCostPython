@@ -40,6 +40,7 @@ class Invoice(Base, BaseMixin, TenantMixin):
     
     # Amounts
     subtotal = Column(Numeric(12, 2), nullable=False)
+    discount_amount = Column(Numeric(12, 2), default=0, nullable=False)
     cgst_amount = Column(Numeric(12, 2), default=0, nullable=False)
     sgst_amount = Column(Numeric(12, 2), default=0, nullable=False)
     igst_amount = Column(Numeric(12, 2), default=0, nullable=False)
@@ -140,7 +141,7 @@ class PaymentTransaction(Base, BaseMixin):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     
     # Metadata
-    metadata = Column(JSON, nullable=True)
+    payment_metadata = Column(JSON, nullable=True)
     error_message = Column(Text, nullable=True)
     
     def __repr__(self):

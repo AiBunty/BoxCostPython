@@ -161,7 +161,7 @@ class InvoicePDFGenerator:
             gst_data.extend([
                 ['<b>Total GST:</b>', f"<b>₹{invoice_data['total_gst']:.2f}</b>"],
                 ['', ''],
-                ['<b>Total Amount:</b>', f"<b>₹{invoice_data['total_amount']:.2f}</b>']
+                ['<b>Total Amount:</b>', f"<b>₹{invoice_data['total_amount']:.2f}</b>"]
             ])
             
             # Convert to Paragraphs for bold text
